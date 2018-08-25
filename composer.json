@@ -14,6 +14,12 @@
     "description": "Common VPN library",
     "license": "AGPL-3.0-or-later",
     "name": "eduvpn/common",
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://git.tuxed.net/fkooman/php-jwt"
+        }
+    ],
     "require": {
         "ext-curl": "*",
         "ext-date": "*",
@@ -27,6 +33,8 @@
         "ext-pdo": "*",
         "ext-radius": "*",
         "ext-spl": "*",
+        "fkooman/jwt": "dev-master",
+        "fkooman/oauth2-client": "dev-oidc",
         "fkooman/secookie": "^2",
         "ircmaxell/password-compat": "^1",
         "paragonie/constant_time_encoding": "^1|^2",
