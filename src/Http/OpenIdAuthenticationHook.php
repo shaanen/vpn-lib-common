@@ -9,7 +9,7 @@
 
 namespace SURFnet\VPN\Common\Http;
 
-use fkooman\OAuth\Client\OpenIdClient;
+use fkooman\OAuth\Client\OAuthClient;
 use fkooman\OAuth\Client\Provider;
 use fkooman\SeCookie\SessionInterface;
 
@@ -21,19 +21,19 @@ class OpenIdAuthenticationHook implements BeforeHookInterface, ServiceModuleInte
     /** @var \fkooman\OAuth\Client\Provider */
     private $provider;
 
-    /** @var \fkooman\OAuth\Client\OpenIdClient */
-    private $openIdClient;
+    /** @var \fkooman\OAuth\Client\OAuthClient */
+    private $oauthClient;
 
     /**
      * @param \fkooman\SeCookie\SessionInterface $session
      * @param \fkooman\OAuth\Client\Provider     $provider
-     * @param \fkooman\OAuth\Client\OpenIdClient $openIdClient
+     * @param \fkooman\OAuth\Client\OAuthClient  $oauthClient
      */
-    public function __construct(SessionInterface $session, Provider $provider, OpenIdClient $openIdClient)
+    public function __construct(SessionInterface $session, Provider $provider, OAuthClient $oauthClient)
     {
         $this->session = $session;
         $this->provider = $provider;
-        $this->openIdClient = $openIdClient;
+        $this->oauthClient = $oauthClient;
     }
 
     /**
@@ -46,15 +46,16 @@ class OpenIdAuthenticationHook implements BeforeHookInterface, ServiceModuleInte
     {
         // do not trigger authentication on callback URL
         if ('/_openid/callback' === $request->getPathInfo()) {
-            return;
+            return false;
         }
 
-        if (false === $idToken = $this->openIdClient->getIdToken($this->provider, 'openid')) {
+        if (false === $idToken = $this->oauthClient->getIdToken($this->provider)) {
             $this->session->set('_openid_return_to', $request->getUri());
 
             return new RedirectResponse(
-                $this->openIdClient->getAuthenticateUri(
+                $this->oauthClient->getAuthorizeUri(
                     $this->provider,
+                    null,
                     'openid',
                     $request->getRootUri().'_openid/callback'
                 )
@@ -75,8 +76,9 @@ class OpenIdAuthenticationHook implements BeforeHookInterface, ServiceModuleInte
              * @return Response
              */
             function (Request $request) {
-                $this->openIdClient->handleAuthenticateCallback(
+                $this->oauthClient->handleCallback(
                     $this->provider,
+                    null,
                     $request->getQueryParameters()
                 );
 
