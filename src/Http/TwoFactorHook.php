@@ -36,14 +36,21 @@ class TwoFactorHook implements BeforeHookInterface
     {
         // some URIs are allowed as they are used for either logging in, or
         // verifying the OTP key
-        $allowedUris = [
+        $allowedPostUris = [
             '/_form/auth/verify',
             '/_form/auth/logout',
             '/_two_factor/auth/verify/totp',
             '/_two_factor/auth/verify/yubi',
         ];
+        $allowedGetUris = [
+            '/_openid/callback',
+        ];
 
-        if (in_array($request->getPathInfo(), $allowedUris, true) && 'POST' === $request->getRequestMethod()) {
+        if (in_array($request->getPathInfo(), $allowedPostUris, true) && 'POST' === $request->getRequestMethod()) {
+            return false;
+        }
+
+        if (in_array($request->getPathInfo(), $allowedGetUris, true) && 'GET' === $request->getRequestMethod()) {
             return false;
         }
 

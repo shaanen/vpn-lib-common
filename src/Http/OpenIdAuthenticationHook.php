@@ -40,10 +40,15 @@ class OpenIdAuthenticationHook implements BeforeHookInterface, ServiceModuleInte
      * @param Request $request
      * @param array   $hookData
      *
-     * @return RedirectResponse|UserInfo
+     * @return false|RedirectResponse|UserInfo
      */
     public function executeBefore(Request $request, array $hookData)
     {
+        // do not trigger authentication on callback URL
+        if ('/_openid/callback' === $request->getPathInfo()) {
+            return;
+        }
+
         if (false === $idToken = $this->openIdClient->getIdToken($this->provider, 'openid')) {
             $this->session->set('_openid_return_to', $request->getUri());
 
