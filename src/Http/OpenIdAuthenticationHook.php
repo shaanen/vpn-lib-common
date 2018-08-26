@@ -9,15 +9,11 @@
 
 namespace SURFnet\VPN\Common\Http;
 
-use fkooman\Jwt\RS256;
-use fkooman\OAuth\Client\ErrorLogger;
-use fkooman\OAuth\Client\Http\CurlHttpClient;
 use fkooman\OAuth\Client\OpenIdClient;
 use fkooman\OAuth\Client\Provider;
-use fkooman\OAuth\Client\SessionTokenStorage;
 use fkooman\SeCookie\SessionInterface;
 
-class OpenIdAuthenticationHook implements BeforeHookInterface
+class OpenIdAuthenticationHook implements BeforeHookInterface, ServiceModuleInterface
 {
     /** @var \fkooman\SeCookie\SessionInterface */
     private $session;
@@ -25,24 +21,19 @@ class OpenIdAuthenticationHook implements BeforeHookInterface
     /** @var \fkooman\OAuth\Client\Provider */
     private $provider;
 
-    /** @var \fkooman\Jwt\RS256 */
-    private $jwtDecoder;
-
-    /** @var string */
-    private $callbackUri;
+    /** @var \fkooman\OAuth\Client\OpenIdClient */
+    private $openIdClient;
 
     /**
      * @param \fkooman\SeCookie\SessionInterface $session
      * @param \fkooman\OAuth\Client\Provider     $provider
-     * @param \fkooman\Jwt\RS256                 $jwtDecoder
-     * @param string                             $callbackUri
+     * @param \fkooman\OAuth\Client\OpenIdClient $openIdClient
      */
-    public function __construct(SessionInterface $session, Provider $provider, RS256 $jwtDecoder, $callbackUri)
+    public function __construct(SessionInterface $session, Provider $provider, OpenIdClient $openIdClient)
     {
         $this->session = $session;
         $this->provider = $provider;
-        $this->jwtDecoder = $jwtDecoder;
-        $this->callbackUri = $callbackUri;
+        $this->openIdClient = $openIdClient;
     }
 
     /**
@@ -53,16 +44,41 @@ class OpenIdAuthenticationHook implements BeforeHookInterface
      */
     public function executeBefore(Request $request, array $hookData)
     {
-        $client = new OpenIdClient(
-            new SessionTokenStorage(), // we won't be using the token anyway...
-            new CurlHttpClient([], new ErrorLogger()),
-            $this->jwtDecoder
-        );
+        if (false === $idToken = $this->openIdClient->getIdToken($this->provider, 'openid')) {
+            $this->session->set('_openid_return_to', $request->getUri());
 
-        if (false === $idToken = $client->getIdToken($this->provider, 'openid')) {
-            return new RedirectResponse($client->getAuthenticateUri($this->provider, 'openid', $this->callbackUri));
+            return new RedirectResponse(
+                $this->openIdClient->getAuthenticateUri(
+                    $this->provider,
+                    'openid',
+                    $request->getRootUri().'_openid/callback'
+                )
+            );
         }
 
         return new UserInfo($idToken->getSub(), []);
+    }
+
+    /**
+     * @return void
+     */
+    public function init(Service $service)
+    {
+        $service->get(
+            '/_openid/callback',
+            /**
+             * @return Response
+             */
+            function (Request $request) {
+                $this->openIdClient->handleAuthenticateCallback(
+                    $this->provider,
+                    $request->getQueryParameters()
+                );
+
+                $returnTo = $this->session->get('_openid_return_to');
+
+                return new RedirectResponse($returnTo);
+            }
+        );
     }
 }
